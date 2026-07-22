@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>BOS Universal IoT Mission Control 3.0</title>
+  <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    :root{
+      --bg:#050b14;--panel:#0b1a2c;--panel2:#10263e;--line:#1b5270;
+      --cyan:#59d3ff;--blue:#2f7cff;--green:#41e28a;--orange:#ffb347;
+      --red:#ff5d6c;--text:#edf9ff;--muted:#8da8ba;--radius:18px
+    }
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;color:var(--text);
+      font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+      background:radial-gradient(circle at 20% 0%,#173b6a 0,transparent 34%),
+      linear-gradient(180deg,#07111f,var(--bg))}
+    button,input,select{font:inherit}.shell{width:min(1400px,calc(100% - 24px));margin:auto;padding:18px 0 36px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px;
+      border:1px solid #1a4058;background:#071525e8;border-radius:var(--radius);position:sticky;top:8px;z-index:5}
+    .brand{display:flex;align-items:center;gap:13px}.mark{width:48px;height:48px;border-radius:14px;
+      display:grid;place-items:center;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#04111c;font-weight:900}
+    h1{font-size:clamp(1.05rem,3vw,1.55rem);margin:0;letter-spacing:.08em;text-transform:uppercase}
+    .sub{font-size:.78rem;color:var(--muted);margin-top:4px;letter-spacing:.08em;text-transform:uppercase}
+    .statusbar{display:flex;flex-wrap:wrap;gap:9px}.pill{display:flex;align-items:center;gap:8px;padding:9px 12px;
+      border:1px solid #1a4058;border-radius:999px;background:#0e2034;color:var(--muted);font-size:.8rem;font-weight:800}
+    .dot{width:9px;height:9px;border-radius:50%;background:#637786}.dot.online{background:var(--green);box-shadow:0 0 13px #41e28acc}
+    .dot.warn{background:var(--orange)}.dot.offline{background:var(--red)}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-top:15px}
+    .card{border:1px solid #173c54;border-radius:var(--radius);background:linear-gradient(180deg,#0b1a2cf2,#071321f2);overflow:hidden}
+    .wide{grid-column:span 2}.full{grid-column:1/-1}.head{display:flex;justify-content:space-between;align-items:center;
+      padding:14px 16px;border-bottom:1px solid #173c54;background:#10263eb8}
+    .title{margin:0;color:var(--cyan);font-size:.82rem;letter-spacing:.12em;text-transform:uppercase}
+    .tag{font-size:.68rem;color:var(--muted);border:1px solid #1d4f6b;border-radius:999px;padding:5px 9px;text-transform:uppercase}
+    .body{padding:16px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+    .field{display:grid;gap:6px}label{font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    input,select{width:100%;min-height:43px;border-radius:10px;border:1px solid #1c4a65;background:#071522;color:var(--text);padding:0 11px;outline:none}
+    input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #59d3ff1d}input[type=range]{padding:0;accent-color:var(--cyan)}
+    .row{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}.btn{min-height:41px;border:1px solid #286080;border-radius:10px;padding:0 14px;
+      color:var(--text);background:linear-gradient(180deg,#173753,#10243a);cursor:pointer;font-weight:850}
+    .btn:hover{filter:brightness(1.12)}.btn:disabled{opacity:.4;cursor:not-allowed}.primary{background:linear-gradient(135deg,#168fc4,var(--blue))}
+    .good{background:linear-gradient(135deg,#13824c,#1aad68)}.danger{background:linear-gradient(135deg,#963142,#c74152)}
+    .warnbtn{background:linear-gradient(135deg,#aa6518,#d98b29)}.ghost{background:#ffffff09}
+    .state{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;margin-bottom:13px;border:1px solid #1a435c;border-radius:11px;background:#59d3ff0a}
+    .state strong{color:var(--cyan)}.small{font-size:.8rem;color:var(--muted);line-height:1.5}.slider{display:grid;grid-template-columns:1fr 70px;gap:10px;align-items:center}
+    .number{min-height:41px;display:grid;place-items:center;border:1px solid #1c4a65;border-radius:10px;background:#071522;color:var(--cyan);font-weight:900}
+    .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.metric{min-height:88px;padding:12px;border:1px solid #173c54;border-radius:12px;background:#0d2238}
+    .mlabel{font-size:.68rem;color:var(--muted);font-weight:800;text-transform:uppercase}.mvalue{margin-top:9px;font-size:1.02rem;font-weight:900}
+    .sensors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.sensor{min-height:108px;padding:13px;border:1px solid #173c54;border-radius:12px;background:#0b2034}
+    .sname{font-size:.7rem;color:var(--muted);font-weight:800;text-transform:uppercase}.svalue{margin-top:15px;color:var(--cyan);font-size:1.6rem;font-weight:900}
+    .stime{margin-top:8px;color:#708798;font-size:.68rem}.console{height:240px;overflow:auto;padding:12px;border:1px solid #173c54;border-radius:12px;
+      background:#020811;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.78rem;line-height:1.55}
+    .log{display:grid;grid-template-columns:74px 65px 1fr;gap:7px}.time{color:#6b8496}.type{color:var(--cyan);font-weight:900}.type.error{color:var(--red)}
+    .type.warning{color:var(--orange)}.type.success{color:var(--green)}footer{text-align:center;color:#6c8494;font-size:.77rem;padding:16px}
+    code{color:#b7eaff;overflow-wrap:anywhere}
+    @media(max-width:1000px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wide{grid-column:span 2}.metrics{grid-template-columns:repeat(2,1fr)}.sensors{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:680px){.topbar{position:static;flex-direction:column;align-items:flex-start}.grid{grid-template-columns:1fr}.wide,.full{grid-column:auto}
+      .formgrid,.metrics,.sensors{grid-template-columns:1fr}.row .btn{flex:1 1 calc(50% - 8px)}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="mark">BOS</div><div><h1>Universal IoT Mission Control</h1><div class="sub">Version 3.0 · Box of Science</div></div></div>
+    <div class="statusbar">
+      <div class="pill"><span id="cloudDot" class="dot offline"></span><span id="cloudText">Cloud Offline</span></div>
+      <div class="pill"><span id="deviceDot" class="dot offline"></span><span id="deviceText">Device Unknown</span></div>
+      <div class="pill">Device <strong id="topDevice">Not Selected</strong></div>
+    </div>
+  </header>
+
+  <section class="grid">
+    <article class="card wide">
+      <div class="head"><h2 class="title">Device Connection</h2><span class="tag">HiveMQ Preconfigured</span></div>
+      <div class="body">
+        <div class="formgrid">
+          <div class="field">
+            <label>Select Device</label>
+            <select id="deviceId">
+              <option value="" selected disabled>Choose your kit</option>
+              <option value="BOS101">BOS101</option>
+              <option value="BOS102">BOS102</option>
+              <option value="BOS103">BOS103</option>
+              <option value="BOS104">BOS104</option>
+              <option value="BOS105">BOS105</option>
+              <option value="BOS106">BOS106</option>
+              <option value="BOS107">BOS107</option>
+              <option value="BOS108">BOS108</option>
+              <option value="BOS109">BOS109</option>
+              <option value="BOS110">BOS110</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <button id="connectBtn" class="btn primary">CONNECT DEVICE</button>
+          <button id="disconnectBtn" class="btn ghost" disabled>DISCONNECT</button>
+          <button id="clearBtn" class="btn ghost">CLEAR CONSOLE</button>
+        </div>
+        <p class="small">Broker, secure WebSocket port and workshop MQTT credentials are already configured. Select the Device ID printed on the kit each time you open this dashboard.</p>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="head"><h2 class="title">Device Health</h2><span class="tag">Live</span></div>
+      <div class="body"><div class="metrics">
+        <div class="metric"><div class="mlabel">MQTT</div><div id="mqttMetric" class="mvalue">Offline</div></div>
+        <div class="metric"><div class="mlabel">Device</div><div id="deviceMetric" class="mvalue">Unknown</div></div>
+        <div class="metric"><div class="mlabel">RSSI</div><div id="rssiMetric" class="mvalue">—</div></div>
+        <div class="metric"><div class="mlabel">Uptime</div><div id="uptimeMetric" class="mvalue">—</div></div>
+        <div class="metric"><div class="mlabel">Free Heap</div><div id="heapMetric" class="mvalue">—</div></div>
+        <div class="metric"><div class="mlabel">Last Seen</div><div id="lastSeenMetric" class="mvalue">—</div></div>
+      </div></div>
+    </article>
+
+    <article class="card">
+      <div class="head"><h2 class="title">LED Control</h2><span class="tag">Active in v1</span></div>
+      <div class="body">
+        <div class="state"><span>Current state</span><strong id="ledState">UNKNOWN</strong></div>
+        <div class="row">
+          <button class="btn good led" data-command="ON">ON</button>
+          <button class="btn danger led" data-command="OFF">OFF</button>
+          <button class="btn warnbtn led" data-command="BLINK">BLINK</button>
+          <button class="btn ghost led" data-command="STOP">STOP</button>
+        </div>
+        <p class="small">Topic: <code id="ledTopic">Select a device first</code></p>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="head"><h2 class="title">Servo Control</h2><span class="tag">Firmware support needed</span></div>
+      <div class="body">
+        <div class="state"><span>Servo 1 angle</span><strong id="servoState">90°</strong></div>
+        <div class="slider"><input id="servoSlider" type="range" min="0" max="180" value="90"><div id="servoValue" class="number">90°</div></div>
+        <div class="row"><button id="servoEnable" class="btn good">ENABLE</button><button id="servoSend" class="btn primary">SEND ANGLE</button><button id="servoDisable" class="btn danger">DISABLE</button></div>
+        <p class="small">Planned topic: <code>bos/&lt;device&gt;/servo/1/command</code></p>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="head"><h2 class="title">DC Motor Control</h2><span class="tag">Firmware support needed</span></div>
+      <div class="body">
+        <div class="state"><span>Motor 1 state</span><strong id="motorState">STOPPED</strong></div>
+        <label>Speed</label><div class="slider"><input id="motorSpeed" type="range" min="0" max="100" value="50"><div id="motorSpeedValue" class="number">50%</div></div>
+        <div class="row"><button class="btn good motor" data-direction="FORWARD">FORWARD</button><button class="btn danger motor" data-direction="REVERSE">REVERSE</button><button class="btn ghost motor" data-direction="STOP">STOP</button></div>
+        <p class="small">Planned topic: <code>bos/&lt;device&gt;/motor/1/command</code></p>
+      </div>
+    </article>
+
+    <article class="card wide">
+      <div class="head"><h2 class="title">Sensor Dashboard</h2><span class="tag">Dynamic JSON</span></div>
+      <div class="body">
+        <div id="sensorGrid" class="sensors">
+          <div class="sensor"><div class="sname">Temperature</div><div class="svalue">— °C</div><div class="stime">Waiting for telemetry</div></div>
+          <div class="sensor"><div class="sname">Humidity</div><div class="svalue">— %</div><div class="stime">Waiting for telemetry</div></div>
+          <div class="sensor"><div class="sname">Distance</div><div class="svalue">— cm</div><div class="stime">Waiting for telemetry</div></div>
+          <div class="sensor"><div class="sname">Light</div><div class="svalue">—</div><div class="stime">Waiting for telemetry</div></div>
+        </div>
+        <p class="small">Future topic: <code>bos/&lt;device&gt;/sensors</code>. Example: <code>{"temperature":{"value":27.4,"unit":"°C"}}</code></p>
+      </div>
+    </article>
+
+    <article class="card full">
+      <div class="head"><h2 class="title">Mission Console</h2><span id="counters" class="tag">TX 0 · RX 0</span></div>
+      <div class="body"><div id="console" class="console"></div></div>
+    </article>
+  </section>
+  <footer>Developed by Box of Science | www.boxofscience.com</footer>
+</main>
+
+<script>
+"use strict";
+const MQTT_CONFIG = Object.freeze({
+  broker: "wss://5667f3f151ae4852babc7953d521fc77.s1.eu.hivemq.cloud:8884/mqtt",
+  username: "BOSIOT",
+  password: "Bos@123456789",
+  rootTopic: "bos"
+});
+let client=null,tx=0,rx=0,lastHeartbeat=0;
+const $=id=>document.getElementById(id);
+const E={deviceId:$("deviceId"),
+connectBtn:$("connectBtn"),disconnectBtn:$("disconnectBtn"),cloudDot:$("cloudDot"),cloudText:$("cloudText"),
+deviceDot:$("deviceDot"),deviceText:$("deviceText"),mqttMetric:$("mqttMetric"),deviceMetric:$("deviceMetric"),
+rssi:$("rssiMetric"),uptime:$("uptimeMetric"),heap:$("heapMetric"),lastSeen:$("lastSeenMetric"),
+ledState:$("ledState"),topDevice:$("topDevice"),ledTopic:$("ledTopic"),console:$("console"),counters:$("counters"),
+servoSlider:$("servoSlider"),servoValue:$("servoValue"),servoState:$("servoState"),
+motorSpeed:$("motorSpeed"),motorSpeedValue:$("motorSpeedValue"),motorState:$("motorState"),sensorGrid:$("sensorGrid")};
+
+function time(){return new Date().toLocaleTimeString([],{hour12:false})}
+function log(type,msg){const r=document.createElement("div");r.className="log";
+r.innerHTML=`<span class="time">${time()}</span><span class="type ${type.toLowerCase()}">${type.toUpperCase()}</span><span></span>`;
+r.lastChild.textContent=msg;E.console.appendChild(r);E.console.scrollTop=E.console.scrollHeight}
+function setCloud(state,text){E.cloudDot.className="dot "+state;E.cloudText.textContent=text;E.mqttMetric.textContent=text.replace("Cloud ","")}
+function setDevice(on){E.deviceDot.className="dot "+(on?"online":"offline");E.deviceText.textContent=on?"Device Online":"Device Offline";E.deviceMetric.textContent=on?"Online":"Offline"}
+function counts(){E.counters.textContent=`TX ${tx} · RX ${rx}`}
+function id(){return E.deviceId.value.trim().toUpperCase()}
+function topics(){const b=`${MQTT_CONFIG.rootTopic}/${id()}`;return{
+ ledCommand:`${b}/led/command`,ledState:`${b}/led/state`,status:`${b}/status`,
+ heartbeat:`${b}/heartbeat`,info:`${b}/info`,sensors:`${b}/sensors`,
+ servo:`${b}/servo/1/command`,motor:`${b}/motor/1/command`}}
+function publish(topic,payload){if(!client||!client.connected){log("error","Cloud is not connected.");return false}
+client.publish(topic,payload,{qos:1},err=>{if(err){log("error",err.message);return}tx++;counts();log("tx",`${topic} → ${payload}`)});return true}
+
+function connectCloud(){
+ if(typeof mqtt==="undefined"){log("error","MQTT.js did not load.");return}
+ if(!id()){log("warning","Select the Device ID printed on your kit.");return}
+ if(client){try{client.end(true)}catch(e){}}
+ E.topDevice.textContent=id();E.ledTopic.textContent=topics().ledCommand;E.connectBtn.disabled=true;E.deviceId.disabled=true;setCloud("warn","Cloud Connecting");
+ const clientId=`BOS-WEB-${id()}-${Math.random().toString(16).slice(2,10)}`;log("info",`Connecting ${id()} to BOS Cloud`);
+ client=mqtt.connect(MQTT_CONFIG.broker,{clientId,username:MQTT_CONFIG.username,password:MQTT_CONFIG.password,clean:true,connectTimeout:10000,reconnectPeriod:3000,keepalive:30,protocolVersion:4});
+ client.on("connect",()=>{setCloud("online","Cloud Connected");E.disconnectBtn.disabled=false;log("success",`Connected as ${clientId}`);
+ const t=topics(),list=[t.ledState,t.status,t.heartbeat,t.info,t.sensors];
+ client.subscribe(list,{qos:1},err=>err?log("error",err.message):log("success",`Subscribed to ${list.length} topics`))});
+ client.on("reconnect",()=>{setCloud("warn","Cloud Reconnecting");log("warning","Reconnecting")});
+ client.on("close",()=>{setCloud("offline","Cloud Offline");E.connectBtn.disabled=false;E.disconnectBtn.disabled=true;E.deviceId.disabled=false});
+ client.on("offline",()=>setCloud("offline","Cloud Offline"));
+ client.on("error",err=>{setCloud("offline","Cloud Error");E.connectBtn.disabled=false;E.deviceId.disabled=false;log("error",err.message)});
+ client.on("message",handleMessage);
+}
+function disconnect(){if(!client)return;client.end(true,{},()=>{setCloud("offline","Cloud Offline");setDevice(false);E.connectBtn.disabled=false;E.disconnectBtn.disabled=true;E.deviceId.disabled=false;log("info","Disconnected by user")})}
+function json(text){try{return JSON.parse(text)}catch(e){log("warning","Received data was not valid JSON");return null}}
+function seen(){E.lastSeen.textContent=time()}
+function uptime(seconds){seconds=Number(seconds);if(!Number.isFinite(seconds))return"—";const d=Math.floor(seconds/86400),h=Math.floor(seconds%86400/3600),m=Math.floor(seconds%3600/60),s=Math.floor(seconds%60);return d?`${d}d ${h}h ${m}m`:h?`${h}h ${m}m ${s}s`:`${m}m ${s}s`}
+function heartbeat(data){const r=data.rssi??data.wifiRssi??data.signal,u=data.uptime??data.uptimeSeconds,h=data.freeHeap??data.heap;
+ if(r!==undefined)E.rssi.textContent=`${r} dBm`;if(u!==undefined)E.uptime.textContent=uptime(u);if(h!==undefined)E.heap.textContent=`${Math.round(Number(h)/1024)} KB`}
+function renderSensors(data){const entries=Object.entries(data);if(!entries.length)return;E.sensorGrid.innerHTML="";
+ entries.forEach(([name,raw])=>{const item=raw&&typeof raw==="object"?{value:raw.value??"—",unit:raw.unit??""}:{value:raw,unit:""};
+ const c=document.createElement("div");c.className="sensor";c.innerHTML=`<div class="sname"></div><div class="svalue"></div><div class="stime">Updated ${time()}</div>`;
+ c.children[0].textContent=name.replace(/([A-Z])/g," $1").replace(/[_-]/g," ");c.children[1].textContent=`${item.value} ${item.unit}`.trim();E.sensorGrid.appendChild(c)})}
+function handleMessage(topic,buf){const payload=buf.toString(),t=topics();rx++;counts();log("rx",`${topic} ← ${payload}`);
+ if(topic===t.ledState){E.ledState.textContent=payload.toUpperCase();return}
+ if(topic===t.status){const p=payload.toUpperCase();setDevice(p.includes("ONLINE")||p.includes("CONNECTED"));seen();return}
+ if(topic===t.heartbeat){lastHeartbeat=Date.now();setDevice(true);seen();const d=json(payload);if(d)heartbeat(d);return}
+ if(topic===t.info){seen();return}
+ if(topic===t.sensors){const d=json(payload);if(d)renderSensors(d);seen()}}
+document.querySelectorAll(".led").forEach(b=>b.onclick=()=>publish(topics().ledCommand,b.dataset.command));
+E.servoSlider.oninput=()=>E.servoValue.textContent=`${E.servoSlider.value}°`;
+$("servoEnable").onclick=()=>publish(topics().servo,JSON.stringify({action:"ENABLE"}));
+$("servoSend").onclick=()=>{const a=Number(E.servoSlider.value);if(publish(topics().servo,JSON.stringify({action:"ANGLE",value:a})))E.servoState.textContent=`${a}°`};
+$("servoDisable").onclick=()=>publish(topics().servo,JSON.stringify({action:"DISABLE"}));
+E.motorSpeed.oninput=()=>E.motorSpeedValue.textContent=`${E.motorSpeed.value}%`;
+document.querySelectorAll(".motor").forEach(b=>b.onclick=()=>{const direction=b.dataset.direction,speed=Number(E.motorSpeed.value);
+ if(publish(topics().motor,JSON.stringify({direction,speed})))E.motorState.textContent=direction==="STOP"?"STOPPED":`${direction} · ${speed}%`});
+E.connectBtn.onclick=connectCloud;E.disconnectBtn.onclick=disconnect;$("clearBtn").onclick=()=>{E.console.innerHTML="";log("info","Console cleared")};
+E.deviceId.onchange=()=>{
+  E.topDevice.textContent=id()||"Not Selected";
+  E.ledTopic.textContent=id()?`${MQTT_CONFIG.rootTopic}/${id()}/led/command`:"Select a device first";
+};
+setInterval(()=>{if(lastHeartbeat&&Date.now()-lastHeartbeat>35000)setDevice(false)},5000);
+window.addEventListener("beforeunload",()=>{if(client)client.end(true)});
+log("info","BOS Mission Control v3.0 initialized");log("info","Select the Device ID printed on your kit, then connect");
+</script>
+</body>
+</html>
